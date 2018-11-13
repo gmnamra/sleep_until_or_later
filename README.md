@@ -10,4 +10,4 @@ Predictability is influenced by OS’s scheduler priority choice for the sleep_t
 ![Screenshot](variation.png)
 
 
-https://github.com/gmnamra/sleep_until_or_later/issues/1#issue-380347802
+
