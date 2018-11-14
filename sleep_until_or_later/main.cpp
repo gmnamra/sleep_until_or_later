@@ -50,19 +50,21 @@ void thread_func ()
 }
 
 /*
- Sleep for a target sleep time, return actual sleep time
+ Sleep for a target sleep time, return pair (actual sleep time, count of calls to ::now ()
  */
 
 template<typename TT>
-TT sleep(TT sleep_time){
+std::pair<TT,int> sleep(TT sleep_time){
     auto mark = std::chrono::steady_clock::now ();
     // initialize duration for now ()
     auto duration = std::chrono::duration_cast<TT>(std::chrono::steady_clock::now () - mark);
     // update duration as long as we have spent less time than sleep time
+    static int i = 0;
     while (duration.count() < sleep_time.count()){
         duration = std::chrono::duration_cast<TT>(std::chrono::steady_clock::now () - mark);
+        i++;
     }
-    return duration;
+    return std::make_pair(duration,i);
 }
 
 /*
@@ -79,15 +81,15 @@ void thread_func_2 ()
     for (int i = 0; i < N; ++i)
     {
         auto sleep_time = TT { O + i * M};
-        auto duration = sleep(sleep_time);
-        auto diff = duration.count() - sleep_time.count();
+        auto duration_loop_pair = sleep(sleep_time);
+        auto diff = duration_loop_pair.first.count() - sleep_time.count();
         std::lock_guard<std::mutex> lk(iomutex);
 
         info.add(diff);
-        std::cout << i << " out of " << N << "\t Priority " << " Automatic " ;
+        std::cout << i << " out of " << N << "\t Loop Count " << duration_loop_pair.second ;
         std::cout << "\t Expected \t" << sleep_time.count () << " units " <<
-        "\t Observed \t" << duration.count () << " units " <<
-        "\t Difference \t" << duration.count () - sleep_time.count () << " units " << std::endl;
+        "\t Observed \t" << duration_loop_pair.first.count () << " units " <<
+        "\t Difference \t" << duration_loop_pair.first.count () - sleep_time.count () << " units " << std::endl;
     }
     stats<float>::PrintTo(info, &std::cout);
 }
