@@ -11,7 +11,6 @@
 #include <chrono>
 #include <iomanip>
 #include <thread>
-#include <thread>
 #include <mutex>
 #include <cstring>
 #include <pthread.h>
@@ -50,6 +49,49 @@ void thread_func ()
     stats<float>::PrintTo(info, &std::cout);
 }
 
+/*
+ Sleep for a target sleep time, return actual sleep time
+ */
+
+template<typename TT>
+TT sleep(TT sleep_time){
+    auto mark = std::chrono::steady_clock::now ();
+    // initialize duration for now ()
+    auto duration = std::chrono::duration_cast<TT>(std::chrono::steady_clock::now () - mark);
+    // update duration as long as we have spent less time than sleep time
+    while (duration.count() < sleep_time.count()){
+        duration = std::chrono::duration_cast<TT>(std::chrono::steady_clock::now () - mark);
+    }
+    return duration;
+}
+
+/*
+TT is must be a duration<long long, "unit">
+O and M are offset and multiplier for generating varying sleep tim
+N is number of iterations to run
+*/
+
+template<typename TT, int O, int M, int N = 10>
+void thread_func_2 ()
+{
+    std::cout << "thread started " << std::endl;
+    stats<float> info;
+    for (int i = 0; i < N; ++i)
+    {
+        auto sleep_time = TT { O + i * M};
+        auto duration = sleep(sleep_time);
+        auto diff = duration.count() - sleep_time.count();
+        std::lock_guard<std::mutex> lk(iomutex);
+
+        info.add(diff);
+        std::cout << i << " out of " << N << "\t Priority " << " Automatic " ;
+        std::cout << "\t Expected \t" << sleep_time.count () << " units " <<
+        "\t Observed \t" << duration.count () << " units " <<
+        "\t Difference \t" << duration.count () - sleep_time.count () << " units " << std::endl;
+    }
+    stats<float>::PrintTo(info, &std::cout);
+}
+
 void set_priority (std::thread& thread, int num){
     if (num < 0) return;
     sched_param sch;
@@ -68,7 +110,7 @@ int get_priority (std::thread& thread){
     return sch.sched_priority;
 }
 
-int main(int argc, const char * argv[]) {
+int main_sleep_for (int argc, const char * argv[]) {
     
     int thread_priority = 0;
     {
@@ -88,6 +130,30 @@ int main(int argc, const char * argv[]) {
         std::cout << "unit = nanoseconds ";
         std::thread sleep_thread (&thread_func<std::chrono::nanoseconds, 100, 10>);
         set_priority(sleep_thread,thread_priority);
+        sleep_thread.join ();
+    }
+    
+    return 0;
+};
+
+
+
+int main  (int argc, const char * argv[]) {
+    
+    {
+        std::cout << "unit = milliseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::milliseconds, 1, 1>);
+        sleep_thread.join ();
+    }
+    
+    {
+        std::cout << "unit = microseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 1, 1>);
+        sleep_thread.join ();
+    }
+    {
+        std::cout << "unit = nanoseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::nanoseconds, 100, 10>);
         sleep_thread.join ();
     }
     
