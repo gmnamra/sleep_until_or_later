@@ -62,6 +62,7 @@ std::pair<TT,int> sleep(TT sleep_time){
     static int i = 0;
     while (duration.count() < sleep_time.count()){
         duration = std::chrono::duration_cast<TT>(std::chrono::steady_clock::now () - mark);
+        std::this_thread::yield();
         i++;
     }
     return std::make_pair(duration,i);
@@ -156,7 +157,7 @@ int main  (int argc, const char * argv[]) {
     }
     {
         std::cout << "unit = nanoseconds ";
-        std::thread sleep_thread (&thread_func_2<std::chrono::nanoseconds, 100, 10>);
+        std::thread sleep_thread (&thread_func_2<std::chrono::nanoseconds, 100, 100>);
         sleep_thread.join ();
     }
     
