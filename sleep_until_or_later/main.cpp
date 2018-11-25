@@ -140,7 +140,7 @@ void thread_func_2 ()
  * sleep_until_or_later
  */
 
-void sleep_until_or_later (float seconds_later){
+void sleep_until_or_later (unsigned int seconds_later){
     using CK = std::chrono::high_resolution_clock;
     std::chrono::duration<double> dur (static_cast<double>(seconds_later));
     auto mark = CK::now ();
@@ -149,13 +149,14 @@ void sleep_until_or_later (float seconds_later){
         ++us_dur;
 
     std::chrono::microseconds pad (1000);
-    if (us_dur < pad){
-        sleep(dur);
-        return;
-    }
+    // always number of seconds. Less than pad, use our microsecond accurate sleep
     
     auto st = mark + us_dur - pad;
+    
+    // use sleep_until for all the way until the last millisecond.
     std::this_thread::sleep_until(st);
+    
+    // use our microsecond accurate sleep for the last millisecond.
     sleep(pad);
 }
 
@@ -173,9 +174,11 @@ void thread_func_3 ()
     stats<float> info;
     for (int i = 0; i < N; ++i)
     {
-        auto sleep_time = TT { O + i * M};
+        int rnd = 1 + std::rand()/((RAND_MAX + 1u)/7);
+        auto sleep_time = TT { O + rnd + i * M};
+        auto in_secs = std::chrono::duration_cast<std::chrono::seconds> (sleep_time);
         auto sleep_time_ms = std::chrono::milliseconds(sleep_time).count();
-        auto took = measure_execution_time(sleep_until_or_later, sleep_time.count());
+        auto took = measure_execution_time(sleep_until_or_later, in_secs.count());
 
         auto diff = sleep_time_ms - took;
         std::lock_guard<std::mutex> lk(iomutex);
@@ -195,11 +198,17 @@ int main  (int argc, const char * argv[]) {
     
     
     {
+        std::cout << "unit = seconds ";
+        std::thread sleep_thread (&thread_func_3<std::chrono::seconds, 1, 10>);
+        sleep_thread.join ();
+    }
+    
+    {
         std::cout << "unit = milliseconds ";
         std::thread sleep_thread (&thread_func_2<std::chrono::milliseconds, 1, 1>);
         sleep_thread.join ();
     }
-    
+ 
     {
         std::cout << "unit = microseconds ";
         std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 1, 1>);
@@ -211,12 +220,6 @@ int main  (int argc, const char * argv[]) {
         sleep_thread.join ();
     }
   
-    
-    {
-        std::cout << "unit = seconds ";
-        std::thread sleep_thread (&thread_func_3<std::chrono::seconds, 1, 10>);
-        sleep_thread.join ();
-    }
-    
+ 
     return 0;
 };
