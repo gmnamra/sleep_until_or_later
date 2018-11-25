@@ -148,14 +148,15 @@ void sleep_until_or_later (float seconds_later){
     if (us_dur < dur)
         ++us_dur;
 
-    if (us_dur.count() < 1000){
+    std::chrono::microseconds pad (1000);
+    if (us_dur < pad){
         sleep(dur);
         return;
     }
     
-    auto st = mark + us_dur - std::chrono::microseconds(1000);
+    auto st = mark + us_dur - pad;
     std::this_thread::sleep_until(st);
-    sleep(std::chrono::microseconds(1000));
+    sleep(pad);
 }
 
 
