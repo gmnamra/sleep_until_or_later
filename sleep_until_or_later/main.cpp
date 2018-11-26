@@ -18,6 +18,7 @@
 #include "stats.hpp"
 
 std::mutex iomutex;
+typedef std::chrono::steady_clock  l_clock_t;
 
 
 #if 0
@@ -32,6 +33,11 @@ T timeout(const F &bind, long sleep) {
 }
 #endif
 
+long double getDifference(const std::chrono::steady_clock::time_point& tp1,const std::chrono::steady_clock::time_point& tp2){
+    auto diff= tp2- tp1;
+    auto res= std::chrono::duration <double, std::milli> (diff).count();
+    return res;
+}
 
 void print_time(std::chrono::system_clock::time_point t)
 {
@@ -45,37 +51,60 @@ void print_time(std::chrono::system_clock::time_point t)
 
 template
 <
-typename CK = std::chrono::high_resolution_clock,
-typename TT = std::chrono::milliseconds,
+typename CK = l_clock_t,
+typename TT = std::chrono::microseconds,
 typename FC,
 typename... FCArgs
 >
-long long measure_execution_time( FC&& f, FCArgs&&... fargs )
+auto measure_execution_time( FC&& f, FCArgs&&... fargs )
 {
     auto time_begin = CK::now();
     f( std::forward<FCArgs>( fargs )... );
     auto time_end = CK::now();
-    return std::chrono::duration_cast<TT>( time_end - time_begin ).count();
+    return std::chrono::duration_cast<TT>( time_end - time_begin );
 }
 
 // measure execution time of a void()
 // @todo template or passed in with clock and resolution as arguments
 namespace benchmark {
     auto measure = [](auto f, unsigned repetitions = 500) {
-        std::chrono::time_point<std::chrono::steady_clock> start, stop;
-        start = std::chrono::steady_clock::now();
+        std::chrono::time_point<l_clock_t> start, stop;
+        start = l_clock_t::now();
         for (auto i = repetitions; i > 0; --i) {
             f();
         }
-        stop = std::chrono::steady_clock::now();
+        stop = l_clock_t::now();
         auto dur = stop - start;
         auto time = std::chrono::duration_cast<std::chrono::duration<float>>(
                                                                              dur / repetitions
                                                                              );
         auto took = std::chrono::duration_cast<std::chrono::nanoseconds>(time);
-        return took.count();
+        return took;
     };
 }
+
+#define SINGLETONPTR(Typename)                     \
+static Typename* instance() {                 \
+static Typename e;                          \
+return &e;                                  \
+}
+
+
+class timeMeasureCalibration
+{
+public:
+    timeMeasureCalibration ()
+    {
+        m_took = benchmark::measure(&l_clock_t::now);
+    }
+    
+    const std::chrono::nanoseconds execution_time() const { return m_took; }
+    
+private:
+    std::chrono::nanoseconds m_took;
+};
+
+SINGLETONPTR(timeMeasureCalibration);
 
 /*
  TT is must be a duration<long long, "unit">
@@ -87,7 +116,7 @@ namespace benchmark {
  Sleep for a target sleep time, return pair (actual sleep time, count of calls to ::now ()
  */
 
-template<typename TT, typename CK = std::chrono::high_resolution_clock>
+template<typename TT, typename CK = l_clock_t>
 std::pair<TT,int> sleep(TT sleep_time){
     auto mark = CK::now ();
     // initialize duration for now ()
@@ -133,31 +162,43 @@ void thread_func_2 ()
         "\t Difference \t" << duration_loop_pair.first.count () - sleep_time.count () << " units " << std::endl;
     }
     stats<float>::PrintTo(info, &std::cout);
-}
+}//
 
 
 /*
  * sleep_until_or_later
  */
 
+/*
+ *  void sleep_until_or_later (unsigned int seconds_later)
+ *  @todo: add support for exceptions
+ */
 void sleep_until_or_later (unsigned int seconds_later){
-    using CK = std::chrono::high_resolution_clock;
+    using CK = l_clock_t;
     std::chrono::duration<double> dur (static_cast<double>(seconds_later));
-    auto mark = CK::now ();
+    // sleep time in microseconds
     auto us_dur = std::chrono::duration_cast<std::chrono::microseconds>(dur);
-    if (us_dur < dur)
-        ++us_dur;
+    // this_thread::sleep_for may sleep sleep_time +/- small number of milliseconds
+    // To produce a more repeatable sleep functionality:
+    // 1. Choose a sleep period, chunk, smaller than requested sleep_time to use with sleep_for
+    //      a. sleep_for(chunk) sleeps for maximum of sleep_time
+    //      b. small enough that microsecond accurate sleep does not call now() too many times
+    // 2. sleep_for (chunk)
+    // 3. measure actual sleep time
+    // 4. compute sleep_time remaining
+    // 5. use microsecond sleep function
+    auto remainder = std::chrono::microseconds(10000);
+    auto chunk = us_dur - remainder;
 
-    std::chrono::microseconds pad (1000);
-    // always number of seconds. Less than pad, use our microsecond accurate sleep
-    
-    auto st = mark + us_dur - pad;
-    
     // use sleep_until for all the way until the last millisecond.
-    std::this_thread::sleep_until(st);
+    auto mark = CK::now ();
+    std::this_thread::sleep_for(chunk);
+    auto read = CK::now ();
+    auto took = std::chrono::duration_cast<std::chrono::microseconds>(read - mark);
+    remainder = us_dur - took;
+    sleep(remainder);
+
     
-    // use our microsecond accurate sleep for the last millisecond.
-    sleep(pad);
 }
 
 
@@ -174,35 +215,54 @@ void thread_func_3 ()
     stats<float> info;
     for (int i = 0; i < N; ++i)
     {
-        int rnd = 1 + std::rand()/((RAND_MAX + 1u)/7);
+        int rnd = 0; // 1 + std::rand()/((RAND_MAX + 1u)/7);
         auto sleep_time = TT { O + rnd + i * M};
         auto in_secs = std::chrono::duration_cast<std::chrono::seconds> (sleep_time);
-        auto sleep_time_ms = std::chrono::milliseconds(sleep_time).count();
-        auto took = measure_execution_time(sleep_until_or_later, in_secs.count());
+        auto mark = l_clock_t::now ();
+        sleep_until_or_later( in_secs.count());
+        // initialize duration for now ()
+        auto took = std::chrono::duration_cast<std::chrono::microseconds>(l_clock_t::now () - mark);
+        
+        auto time = std::chrono::duration_cast<std::chrono::duration<float>>(took);
+        auto diff = std::chrono::duration_cast<std::chrono::duration<float>>(sleep_time - time);
 
-        auto diff = sleep_time_ms - took;
+        
+        auto diff_count = std::chrono::duration_cast<std::chrono::microseconds>(diff).count();
+        info.add(diff_count);
         std::lock_guard<std::mutex> lk(iomutex);
         
-        info.add(diff);
-        std::cout << i << " out of " << N << "\t Loop Count " ;
-        std::cout << "\t Expected \t" << sleep_time_ms << " units " << took <<
-        "\t Difference \t" << diff << " units " << std::endl;
+        std::cout << i << " out of " << N;
+        std::cout << "\t Expected \t" << sleep_time.count() << " units " << "\t Observed  \t" <<
+            std::chrono::duration_cast<std::chrono::microseconds>(time).count() / 1000000 << " with " << diff_count << " microseconds " << std::endl;
     }
     stats<float>::PrintTo(info, &std::cout);
 }
 
 int main  (int argc, const char * argv[]) {
  
-    auto now_took = benchmark::measure(&std::chrono::steady_clock::now);
-    std::cout << now_took << " nanoseconds " << std::endl;
-    
+    auto now_took = instance()->execution_time().count();
+    std::cout << "::now () takes " << now_took << " nanoseconds " << std::endl;
+    std::cout << "===============================================================" << std::endl;
     
     {
-        std::cout << "unit = seconds ";
-        std::thread sleep_thread (&thread_func_3<std::chrono::seconds, 1, 10>);
+        std::cout << "sleep_until_or_later unit = seconds ";
+        std::thread sleep_thread (&thread_func_3<std::chrono::seconds, 1, 1>);
         sleep_thread.join ();
     }
     
+#if 0
+    {
+        std::cout << "unit = nanoseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::nanoseconds, 100, 100>);
+        sleep_thread.join ();
+    }
+
+    {
+        std::cout << "unit = microseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 1, 1>);
+        sleep_thread.join ();
+    }
+
     {
         std::cout << "unit = milliseconds ";
         std::thread sleep_thread (&thread_func_2<std::chrono::milliseconds, 1, 1>);
@@ -210,16 +270,11 @@ int main  (int argc, const char * argv[]) {
     }
  
     {
-        std::cout << "unit = microseconds ";
-        std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 1, 1>);
+        std::cout << "unit = seconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::seconds, 1, 1>);
         sleep_thread.join ();
     }
-    {
-        std::cout << "unit = nanoseconds ";
-        std::thread sleep_thread (&thread_func_2<std::chrono::nanoseconds, 100, 100>);
-        sleep_thread.join ();
-    }
-  
+#endif
  
     return 0;
 };
