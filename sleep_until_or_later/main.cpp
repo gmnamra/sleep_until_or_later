@@ -57,7 +57,7 @@ std::pair<TT,int> sleep(TT sleep_time){
     static int i = 0;
     while (duration.count() < sleep_time.count()){
         duration = std::chrono::duration_cast<TT>(CK::now () - mark);
-        std::this_thread::yield();
+//        std::this_thread::yield();
         i++;
     }
     return std::make_pair(duration,i);
@@ -121,9 +121,9 @@ void thread_func_3 ()
     {
         int rnd = 0; // 1 + std::rand()/((RAND_MAX + 1u)/7);
         auto sleep_time = TT { O + rnd + i * M};
-        auto in_secs = std::chrono::duration_cast<std::chrono::microseconds> (sleep_time);
+        auto in_microsecs = std::chrono::duration_cast<std::chrono::microseconds> (sleep_time);
         auto mark = l_clock_t::now ();
-        sleep_until_or_later( static_cast<unsigned int>(in_secs.count()));
+        sleep_until_or_later( static_cast<unsigned int>(in_microsecs.count()));
         // initialize duration for now ()
         auto took = std::chrono::duration_cast<std::chrono::microseconds>(l_clock_t::now () - mark);
         
@@ -144,6 +144,39 @@ void thread_func_3 ()
     stats<float>::PrintTo(info, &std::cout);
 }
 
+
+template<typename TT, int O, int M, int N = 10>
+void thread_func_2 ()
+{
+    std::cout << "thread started " << std::endl;
+    stats<float> info;
+    for (int i = 0; i < N; ++i)
+    {
+        int rnd = 0; // 1 + std::rand()/((RAND_MAX + 1u)/7);
+        auto sleep_time = TT { O + rnd + i * M};
+        auto in_microsecs = std::chrono::duration_cast<std::chrono::microseconds> (sleep_time);
+        auto mark = l_clock_t::now ();
+        std::this_thread::sleep_for(in_microsecs);
+        // initialize duration for now ()
+        auto took = std::chrono::duration_cast<std::chrono::microseconds>(l_clock_t::now () - mark);
+        
+        auto time = std::chrono::duration_cast<std::chrono::duration<float>>(took);
+        auto diff = std::chrono::duration_cast<std::chrono::duration<float>>(sleep_time - time);
+        
+        
+        auto diff_count = std::chrono::duration_cast<std::chrono::microseconds>(diff).count();
+        info.add(diff_count);
+        {
+            std::lock_guard<std::mutex> lk(iomutex);
+            
+            std::cout << i << " out of " << N;
+            std::cout << "\t Expected \t" << sleep_time.count() << " units " << "\t Observed  \t" <<
+            std::chrono::duration_cast<std::chrono::microseconds>(time).count() << " with " << diff_count << " microseconds " << std::endl;
+        }
+    }
+    stats<float>::PrintTo(info, &std::cout);
+}
+
 int main  (int argc, const char * argv[]) {
  
     std::cout << "===============================================================" << std::endl;
@@ -156,22 +189,67 @@ int main  (int argc, const char * argv[]) {
     }
     
     {
+        std::cout << "sleep_for unit = microseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 1023, 1>);
+        sleep_thread.join ();
+    }
+    
+    {
+        std::cout << "sleep_for unit = milliseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::milliseconds, 1, 1>);
+        sleep_thread.join ();
+    }
+    
+    {
         std::cout << "sleep_until_or_later unit =  microseconds ";
         std::thread sleep_thread (&thread_func_3<std::chrono::microseconds, 10023, 10>);
         sleep_thread.join ();
     }
+    
+    {
+        std::cout << "sleep_for unit = microseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 10023, 1>);
+        sleep_thread.join ();
+    }
+    
+    {
+        std::cout << "sleep_for unit = milliseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::milliseconds, 10, 1>);
+        sleep_thread.join ();
+    }
+    
     {
         std::cout << "sleep_until_or_later unit =  microseconds ";
         std::thread sleep_thread (&thread_func_3<std::chrono::microseconds, 100023, 100>);
         sleep_thread.join ();
     }
+    
     {
-        std::cout << "sleep_until_or_later unit =  microseconds ";
-        std::thread sleep_thread (&thread_func_3<std::chrono::microseconds, 1000023, 1000>);
+        std::cout << "sleep_for unit = microseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 100023, 1>);
         sleep_thread.join ();
     }
     
-    
+    {
+        std::cout << "sleep_for unit = milliseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::milliseconds, 100, 1>);
+        sleep_thread.join ();
+    }
+    {
+        std::cout << "sleep_until_or_later unit =  microseconds ";
+        std::thread sleep_thread (&thread_func_3<std::chrono::microseconds, 100002323, 1000>);
+        sleep_thread.join ();
+    }
+    {
+        std::cout << "sleep_for unit = microseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::microseconds, 100002323, 1>);
+        sleep_thread.join ();
+    }
+    {
+        std::cout << "sleep_for unit = milliseconds ";
+        std::thread sleep_thread (&thread_func_2<std::chrono::milliseconds, 100000, 1>);
+        sleep_thread.join ();
+    }
  
     return 0;
 };
