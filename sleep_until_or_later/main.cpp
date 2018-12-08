@@ -6,7 +6,7 @@
 //  Copyright © 2018 darisallc. All rights reserved.
 //
 #include <iostream>
-#include <map>
+#include <vector>
 #include <cmath>
 #include <string>
 #include <chrono>
@@ -15,58 +15,16 @@
 #include <thread>
 #include <mutex>
 #include <cstring>
+#include "sleep_util_or_later.hpp"
+
 #include "stats.hpp"
 
-
-/*
- *  void sleep_until_or_later (unsigned int  microseconds_later)
- *  @todo: add support for exceptions
-
-  To produce a more repeatable sleep functionality:
-  1. Choose a sleep period, chunk, smaller than requested sleep_time to use with sleep_for
-       a. sleep_for(chunk) sleeps for maximum of sleep_time
-       b. small enough that microsecond accurate sleep does not call now() too many times
-          use log of microseconds to proportionally set remainder.
-  2. sleep_for (chunk)
-  3. measure actual sleep time
-  4. compute sleep_time remaining
-  5. use microsecond sleep function
- */
-void sleep_until_or_later (unsigned int microseconds_later){
-    using namespace std::chrono;
-    using CK = std::chrono::steady_clock;
-
-    if (microseconds_later == 0) return;
-    
-    auto mark = CK::now ();
-    // sleep time in microseconds
-    microseconds dur (microseconds_later);
-    
-    // log10 of sleep time in microseconds.
-    auto logx = std::lround(std::log(microseconds_later)) + 1;
-  
-    auto reminder_counts = (logx < 3) ? 1 : logx < 4 ? 100 : logx < 6 ? 1000 : 10000;
-    auto remainder = std::chrono::microseconds(reminder_counts);
-    auto chunk = dur - remainder;
-    // use sleep_until for all the way until the last millisecond.
- 
-    std::this_thread::sleep_for(chunk);
-    auto took = std::chrono::duration_cast<std::chrono::microseconds>(CK::now () - mark);
-    remainder = dur - took;
-    mark = CK::now ();
-    // initialize duration for now ()
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(CK::now () - mark);
-    
-    // Find the number of microseconds. Remainder
-    // update duration as long as we have spent less time than sleep time
-    while (duration.count() < remainder.count()){
-        duration = std::chrono::duration_cast<std::chrono::microseconds>(CK::now () - mark);
-    }
-}
+using namespace sleep_util;
 
 
 /*
  *      Testing Support ( @todo use gtest )
+ *      Generate varying sleep time with an offset and a multiplier
  */
 
 
@@ -76,7 +34,8 @@ void sleep_until_or_later (unsigned int microseconds_later){
 std::mutex iomutex;
 
 typedef std::chrono::steady_clock l_clock_t;
-stats<float> sleepUntilOrLater, thisThreadSleepFor;
+
+
 
 /*
 TT is must be a duration<long long, "unit">
@@ -84,13 +43,13 @@ O and M are offset and multiplier for generating varying sleep tim
 N is number of iterations to run
 */
 
-template<typename TT, int O, int M, int N = 10, bool PRNT = false>
-void test_sleep_until_or_later ()
+template<typename TT>
+void test_sleep_until_or_later (int offset, int multiplier, int N , bool PRNT, stats<float>& stats_holder )
 {
     for (int i = 0; i < N; ++i)
     {
         int rnd = 0; // 1 + std::rand()/((RAND_MAX + 1u)/7);
-        auto sleep_time = TT { O + rnd + i * M};
+        auto sleep_time = TT { offset + rnd + i * multiplier};
         auto in_microsecs = std::chrono::duration_cast<std::chrono::microseconds> (sleep_time);
         auto mark = l_clock_t::now ();
         sleep_until_or_later( static_cast<unsigned int>(in_microsecs.count()));
@@ -102,7 +61,7 @@ void test_sleep_until_or_later ()
 
         
         auto diff_count = std::chrono::duration_cast<std::chrono::microseconds>(diff).count();
-        sleepUntilOrLater.add(diff_count);
+        stats_holder.add(diff_count);
         
         if(PRNT)
         {
@@ -117,14 +76,14 @@ void test_sleep_until_or_later ()
 }
 
 
-template<typename TT, int O, int M, int N = 10, bool PRNT = false>
-void test_std_this_thread_sleep_for ()
+template<typename TT>
+void test_std_this_thread_sleep_for (int offset, int multiplier, int N , bool PRNT, stats<float>& stats_holder)
 {
     stats<float> info;
     for (int i = 0; i < N; ++i)
     {
         int rnd = 0; // 1 + std::rand()/((RAND_MAX + 1u)/7);
-        auto sleep_time = TT { O + rnd + i * M};
+        auto sleep_time = TT { offset + rnd + i * multiplier};
         auto in_microsecs = std::chrono::duration_cast<std::chrono::microseconds> (sleep_time);
         auto mark = l_clock_t::now ();
         std::this_thread::sleep_for(in_microsecs);
@@ -136,7 +95,7 @@ void test_std_this_thread_sleep_for ()
         
         
         auto diff_count = std::chrono::duration_cast<std::chrono::microseconds>(diff).count();
-        thisThreadSleepFor.add(diff_count);
+        stats_holder.add(diff_count);
         
         if(PRNT)
         {
@@ -149,77 +108,62 @@ void test_std_this_thread_sleep_for ()
     }
 }
 
-int main  (int argc, const char * argv[]) {
+bool run_test (std::pair<uint32_t,uint32_t>& test_case, float better_by, bool verbose) {
  
-    std::cout << "===============================================================" << std::endl;
+    stats<float> sleepUntilOrLater, thisThreadSleepFor;
+    
+   
     {
-        std::cout << "Testing sleep_until_or_later unit 1023 microseconds ";
-        std::thread sleep_thread (&test_sleep_until_or_later<std::chrono::microseconds, 1023, 1>);
+        if(verbose)std::cout << "Testing sleep_until_or_later " << std::endl;
+        std::thread sleep_thread (&test_sleep_until_or_later<std::chrono::microseconds>, test_case.first, test_case.second, 10, false, std::ref(sleepUntilOrLater));
         sleep_thread.join ();
     }
     
     {
-        std::cout << "Testing sleep_for unit 1023 microseconds ";
-        std::thread sleep_thread (&test_std_this_thread_sleep_for<std::chrono::microseconds, 1023, 1>);
-        sleep_thread.join ();
-    }
-    
-    std::cout << "===============================================================" << std::endl;
-    {
-        std::cout << "Testing sleep_until_or_later unit 10023  microseconds ";
-        std::thread sleep_thread (&test_sleep_until_or_later<std::chrono::microseconds, 10023, 10>);
-        sleep_thread.join ();
-    }
-    
-    {
-        std::cout << "Testing sleep_for unit 10023 microseconds ";
-        std::thread sleep_thread (&test_std_this_thread_sleep_for<std::chrono::microseconds, 10023, 10>);
-        sleep_thread.join ();
-    }
-    
-    std::cout << "===============================================================" << std::endl;
-    {
-        std::cout << "Testing sleep_until_or_later unit 100023 microseconds ";
-        std::thread sleep_thread (&test_sleep_until_or_later<std::chrono::microseconds, 100023, 100>);
-        sleep_thread.join ();
-    }
-    
-    {
-        std::cout << "Testing sleep_for unit 100023 microseconds ";
-        std::thread sleep_thread (&test_std_this_thread_sleep_for<std::chrono::microseconds, 100023, 100>);
+        if(verbose)std::cout << "Testing sleep_for  " << std::endl;;
+        std::thread sleep_thread (&test_std_this_thread_sleep_for<std::chrono::microseconds>, test_case.first, test_case.second,  10, false, std::ref(thisThreadSleepFor));
         sleep_thread.join ();
     }
 
-  
 
-    std::cout << "===============================================================" << std::endl;
-
-    {
-        std::cout << "Testing sleep_until_or_later unit 10002323 microseconds ";
-        std::thread sleep_thread (&test_sleep_until_or_later<std::chrono::microseconds, 1002323, 100>);
-        sleep_thread.join ();
-    }
-    {
-        std::cout << "Testing sleep_for unit 10002323 microseconds ";
-        std::thread sleep_thread (&test_std_this_thread_sleep_for<std::chrono::microseconds, 1002323, 100>);
-        sleep_thread.join ();
-    }
- 
-    std::cout << "===============================================================" << std::endl;
+    if(verbose)std::cout << "===============================================================" << std::endl;
+    auto epsilon = 1e-6; // 1/1000000 of microseconds or 1/1000 of a nanosecond
     
-    stats<float>::PrintTo(sleepUntilOrLater , &std::cout);
-    stats<float>::PrintTo(thisThreadSleepFor , &std::cout);
+    bool ok = sleepUntilOrLater.count() == thisThreadSleepFor.count();
+    
+    if(verbose)std::cout << sleepUntilOrLater.count() << " Test Cases" << std::endl;
+    
+    // Uncomment to see all stats
+    //stats<float>::PrintTo(sleepUntilOrLater , &std::cout);
+    //stats<float>::PrintTo(thisThreadSleepFor , &std::cout);
     
     // Check neither sleeps for more than was asked
-    auto epsilon = 1e-6; // 1/1000000 of microseconds or 1/1000 of a nanosecond
-    assert(sleepUntilOrLater.minimum() <= epsilon);
-    assert(thisThreadSleepFor.minimum() <= epsilon);
+ 
+    ok &= (sleepUntilOrLater.minimum() <= epsilon);
+    if(verbose)std::cout << "sleep_until_or_later was on or later by " << -sleepUntilOrLater.minimum() << std::endl;
+    
+    ok &= (thisThreadSleepFor.minimum() <= epsilon);
+    if(verbose)std::cout << "this_thread::sleep_fpr was on or later by " << -thisThreadSleepFor.minimum() << std::endl;
+    
     auto min_better = thisThreadSleepFor.minimum() / (sleepUntilOrLater.minimum() + epsilon);
-    assert(min_better >= 100);
-    auto std_better = std::sqrt(thisThreadSleepFor.variance()) / std::sqrt((sleepUntilOrLater.variance() + epsilon));
-    assert(std_better >= 100);
-    std::cout << min_better << "," << std_better << std::endl;
+    ok &= min_better >= better_by;
     
-    
-    return 0;
+    return ok;
 };
+
+
+
+int main (int argc, char* argv [] ) {
+    typedef std::pair<uint32_t,uint32_t> u32_pair_t;
+    std::vector<u32_pair_t> tests {{1023u,1u},{10023u, 10u},{100023u, 100u},{1002323u, 100u}};
+    float better_by = 100.0f;
+    for(auto test_case : tests){
+        auto res = run_test(test_case, better_by, false);
+        auto verdict =  res ? "Passed" : "Failed";
+        std::cout << "======================" << test_case.first << " microseconds =========" << verdict << std::endl;
+
+    }
+
+    
+}
+
