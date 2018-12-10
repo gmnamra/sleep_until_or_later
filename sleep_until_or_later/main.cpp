@@ -5,6 +5,7 @@
 //  Created by Arman Garakani on 11/8/18.
 //  Copyright © 2018 darisallc. All rights reserved.
 //
+
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -15,6 +16,8 @@
 #include <thread>
 #include <mutex>
 #include <cstring>
+
+
 #include "sleep_util_or_later.hpp"
 
 #include "stats.hpp"
@@ -108,20 +111,21 @@ void test_std_this_thread_sleep_for (int offset, int multiplier, int N , bool PR
     }
 }
 
-bool run_test (std::pair<uint32_t,uint32_t>& test_case, float better_by, bool verbose) {
+bool run_test (std::pair<uint64_t,uint32_t>& test_case, float better_by, bool verbose) {
  
     stats<float> sleepUntilOrLater, thisThreadSleepFor;
     
    
     {
         if(verbose)std::cout << "Testing sleep_until_or_later " << std::endl;
-        std::thread sleep_thread (&test_sleep_until_or_later<std::chrono::microseconds>, test_case.first, test_case.second, 10, false, std::ref(sleepUntilOrLater));
+        std::thread sleep_thread (&test_sleep_until_or_later<std::chrono::microseconds>, test_case.first, test_case.second, 10, verbose, std::ref(sleepUntilOrLater));
         sleep_thread.join ();
+
     }
     
     {
         if(verbose)std::cout << "Testing sleep_for  " << std::endl;;
-        std::thread sleep_thread (&test_std_this_thread_sleep_for<std::chrono::microseconds>, test_case.first, test_case.second,  10, false, std::ref(thisThreadSleepFor));
+        std::thread sleep_thread (&test_std_this_thread_sleep_for<std::chrono::microseconds>, test_case.first, test_case.second,  10, verbose, std::ref(thisThreadSleepFor));
         sleep_thread.join ();
     }
 
@@ -140,30 +144,75 @@ bool run_test (std::pair<uint32_t,uint32_t>& test_case, float better_by, bool ve
     // Check neither sleeps for more than was asked
  
     ok &= (sleepUntilOrLater.minimum() <= epsilon);
-    if(verbose)std::cout << "sleep_until_or_later was on or later by " << -sleepUntilOrLater.minimum() << std::endl;
+    if(verbose)std::cout << "sleep_until_or_later was on or later at most by " << -sleepUntilOrLater.median() << std::endl;
     
     ok &= (thisThreadSleepFor.minimum() <= epsilon);
-    if(verbose)std::cout << "this_thread::sleep_fpr was on or later by " << -thisThreadSleepFor.minimum() << std::endl;
+    if(verbose)std::cout << "this_thread::sleep_f0r was on or later at most by " << -thisThreadSleepFor.median() << std::endl;
     
     auto min_better = thisThreadSleepFor.minimum() / (sleepUntilOrLater.minimum() + epsilon);
     ok &= min_better >= better_by;
     
+    auto verdict =  ok? "Passed" : "Failed";
+    std::cout << "======================" << test_case.first << " microseconds =========" << verdict << std::endl;
+    
     return ok;
 };
 
+void print_usage (){
+    std::cout << "sleep_until_or_later is run and performance compared with thisthread::sleep_for\n";
+    std::cout << "Usage: " << " [ optional:-[vV] verbose optional:count <microseconds>\n";
+    std::cout << "\tcommandline is empty, runs standard test with verbose set to off\n";
+    std::cout << "\tIf count is 0, runs built in test cases\n";
+    std::cout << "\telse sleep_until_or_later is run and performance compared with thisthread::sleep_for\n";
+}
 
 
 int main (int argc, char* argv [] ) {
-    typedef std::pair<uint32_t,uint32_t> u32_pair_t;
-    std::vector<u32_pair_t> tests {{1023u,1u},{10023u, 10u},{100023u, 100u},{1002323u, 100u}};
-    float better_by = 100.0f;
-    for(auto test_case : tests){
-        auto res = run_test(test_case, better_by, false);
-        auto verdict =  res ? "Passed" : "Failed";
-        std::cout << "======================" << test_case.first << " microseconds =========" << verdict << std::endl;
-
+   
+    std::this_thread::sleep_for(1s);
+    
+    std::vector<std::string> verbose_cmds {"-v","-V"};
+    
+    if(argc < 2 || argc > 4){
+        print_usage();
+        return 0;
+    }
+    bool verbose = argv[1] == verbose_cmds[0] || argv[1] == verbose_cmds[1];
+    if ((argc == 2 && verbose) || (argc == 3 && ! verbose)){
+        print_usage();
+        return 1;
     }
 
-    
-}
+    typedef std::pair<uint64_t,uint32_t> u64_pair_t;
+    float better_by = 2.0f;
+    bool valid_input = false;
 
+    uint64_t val = 0;
+
+    if(verbose)
+        std::cout << "sleep_until_or_later is run and performance compared with thisthread::sleep_for\n";
+    
+    try{
+        val = std::stoul(argv[argc-1]);
+        valid_input = true;
+    }
+    catch (std::exception &e) {
+            if(verbose)
+                std::cerr << "Error: " << e.what() << std::endl << std::endl << val << std::endl;
+            return 1;
+    }
+
+    switch(val){
+        case 0:{
+                std::vector<u64_pair_t> builtin_tests {{1023u,1u},{10023u, 10u},{100023u, 100u},{1002323u, 100u}};
+                for(auto test_case : builtin_tests){
+                    run_test(test_case, better_by, false);
+                }
+                break;
+        }
+        default:
+            u64_pair_t test_case (val,1);
+            run_test(test_case, better_by, verbose);
+            break;
+    }
+}
