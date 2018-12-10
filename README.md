@@ -19,11 +19,17 @@ Is std library's sleep_for accurate to a microsecond ? Put another way, what sho
 Divide the **expected_count** in to larger coarse and fine duration counts. Use ```std::this_thread::sleep_for``` for coarse_duration, followed by call sleeping through fine_duration be repeated calls to ```::now()```.
 
 *1.  ```Initial_Mark = ::now()```
+
 *2.  ```std::this_thread::sleep_for``` for a ```chunk_count =  expected_count - delta_count```
+
 *3. Calculate  ```remainder_count = ::now() - Initial_Mark``` 
+
 *4. ```Rem_Mark = ::now()```
+
 *5. Initialize ```duration_count = ::now() - Rem_Mark``` 
+
 *6. While ```(duration_count < remainder_count) {duration_count = ::now() - Rem_Mark}``` 
+
 
 #### Choice of fine_duration count ( microseconds)
 Fine_duration count is smaller than expected_count and is set proportional to the expected_count but never larger than 10,000 ( or 10 milliseconds)
