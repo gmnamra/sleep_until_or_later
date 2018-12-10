@@ -47,7 +47,7 @@ void sleep_until_or_later (unsigned int microseconds_later){
     // log10 of sleep time in microseconds.
     auto logx = std::lround(std::log(microseconds_later)) + 1;
     
-    auto reminder_counts = (logx < 3) ? 1 : logx < 4 ? 100 : logx < 6 ? 1000 : 10000;
+    auto reminder_counts = (logx < 2) ? 1 : logx < 3 ? 10 : logx < 4 ? 100 : logx < 6 ? 1000 : 10000;
     auto remainder = std::chrono::microseconds(reminder_counts);
     auto chunk = dur - remainder;
     // use sleep_until for all the way until the last millisecond.
