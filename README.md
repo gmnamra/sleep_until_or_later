@@ -69,35 +69,36 @@ $ ./sleep_until_or_later
     else sleep_until_or_later is run and performance compared with thisthread::sleep_for
 ```
 ```
-./sleep_until_or_later -v 99
+$ ./sleep_until_or_later -v 10000000
 sleep_until_or_later is run and performance compared with thisthread::sleep_for
 Testing sleep_until_or_later 
-0 out of 10     Expected     99 units      Observed      100 with -1 microseconds 
-1 out of 10     Expected     100 units      Observed      100 with 0 microseconds 
-2 out of 10     Expected     101 units      Observed      101 with 0 microseconds 
-3 out of 10     Expected     102 units      Observed      102 with 0 microseconds 
-4 out of 10     Expected     103 units      Observed      103 with 0 microseconds 
-5 out of 10     Expected     104 units      Observed      104 with 0 microseconds 
-6 out of 10     Expected     105 units      Observed      105 with 0 microseconds 
-7 out of 10     Expected     106 units      Observed      106 with 0 microseconds 
-8 out of 10     Expected     107 units      Observed      107 with 0 microseconds 
-9 out of 10     Expected     108 units      Observed      108 with 0 microseconds 
+0 out of 10     Expected     10000000 units      Observed      10000003 with -3 microseconds 
+1 out of 10     Expected     10000001 units      Observed      10000002 with -1 microseconds 
+2 out of 10     Expected     10000002 units      Observed      10000003 with -1 microseconds 
+3 out of 10     Expected     10000003 units      Observed      10000004 with -1 microseconds 
+4 out of 10     Expected     10000004 units      Observed      10000005 with -1 microseconds 
+5 out of 10     Expected     10000005 units      Observed      10000007 with -2 microseconds 
+6 out of 10     Expected     10000006 units      Observed      10000008 with -2 microseconds 
+7 out of 10     Expected     10000007 units      Observed      10000008 with -1 microseconds 
+8 out of 10     Expected     10000008 units      Observed      10000009 with -1 microseconds 
+9 out of 10     Expected     10000009 units      Observed      10000011 with -2 microseconds 
 Testing sleep_for  
-0 out of 10     Expected     99 units      Observed      189 with -90 microseconds 
-1 out of 10     Expected     100 units      Observed      154 with -54 microseconds 
-2 out of 10     Expected     101 units      Observed      154 with -53 microseconds 
-3 out of 10     Expected     102 units      Observed      152 with -50 microseconds 
-4 out of 10     Expected     103 units      Observed      150 with -47 microseconds 
-5 out of 10     Expected     104 units      Observed      160 with -56 microseconds 
-6 out of 10     Expected     105 units      Observed      147 with -42 microseconds 
-7 out of 10     Expected     106 units      Observed      148 with -42 microseconds 
-8 out of 10     Expected     107 units      Observed      152 with -45 microseconds 
-9 out of 10     Expected     108 units      Observed      150 with -42 microseconds 
+0 out of 10     Expected     10000000 units      Observed      10005030 with -5030 microseconds 
+1 out of 10     Expected     10000001 units      Observed      10001864 with -1863 microseconds 
+2 out of 10     Expected     10000002 units      Observed      10000586 with -584 microseconds 
+3 out of 10     Expected     10000003 units      Observed      10004994 with -4991 microseconds 
+4 out of 10     Expected     10000004 units      Observed      10005036 with -5032 microseconds 
+5 out of 10     Expected     10000005 units      Observed      10005004 with -4999 microseconds 
+6 out of 10     Expected     10000006 units      Observed      10001017 with -1011 microseconds 
+7 out of 10     Expected     10000007 units      Observed      10001751 with -1744 microseconds 
+8 out of 10     Expected     10000008 units      Observed      10004987 with -4979 microseconds 
+9 out of 10     Expected     10000009 units      Observed      10001330 with -1321 microseconds 
 ===============================================================
 10 Test Cases
-sleep_until_or_later was on or later at most by -0
-this_thread::sleep_f0r was on or later at most by 48.5
-======================99 microseconds =========Passed
+sleep_until_or_later was on or later at most by 1
+this_thread::sleep_f0r was on or later at most by 3421
+======================10000000 microseconds =========Passed
+
 ```
 
 
