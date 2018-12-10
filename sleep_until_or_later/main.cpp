@@ -159,11 +159,11 @@ bool run_test (std::pair<uint64_t,uint32_t>& test_case, float better_by, bool ve
 };
 
 void print_usage (){
-    std::cout << "sleep_until_or_later is run and performance compared with thisthread::sleep_for\n";
+    std::cout << "Measures performance of sleep_until_or_later versus this_thread::sleep_for\n";
     std::cout << "Usage: " << " [ optional:-[vV] verbose optional:count <microseconds>\n";
     std::cout << "\tcommandline is empty, runs standard test with verbose set to off\n";
     std::cout << "\tIf count is 0, runs built in test cases\n";
-    std::cout << "\telse sleep_until_or_later is run and performance compared with thisthread::sleep_for\n";
+    std::cout << "\telse sleep_until_or_later is run and performance compared with this_thread::sleep_for\n";
 }
 
 

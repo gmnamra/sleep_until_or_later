@@ -62,11 +62,12 @@ Set Team and build
 ### Running
 ```
 $ ./sleep_until_or_later
-    sleep_until_or_later is run and performance compared with thisthread::sleep_for
+    Measures performance of sleep_until_or_later versus this_thread::sleep_for
     Usage:  [ optional:-[vV] verbose optional:count <microseconds>
     commandline is empty, runs standard test with verbose set to off
     If count is 0, runs built in test cases
-    else sleep_until_or_later is run and performance compared with thisthread::sleep_for
+    else sleep_until_or_later is run and performance compared with this_thread::sleep_for
+
 ```
 ```
 $ ./sleep_until_or_later -v 10000000
