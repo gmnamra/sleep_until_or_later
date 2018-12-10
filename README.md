@@ -3,9 +3,9 @@
 
 ## Overview
 
-Is std library's sleep_for accurate to a microsecond ? Put another way, what should be our expectation of the difference between **expected_count** of miroceconds sleep and **actual_count**. It is required that **actual_count** be equal or greater than **expected_count**. Initial tests showed that ```std::this_thread::sleep_for*```  is accurate to **a millisecond or so**. 
+Is std library's sleep_for accurate to a microsecond ? Put another way, what should be our expectation of the difference between **expected_count** of miroceconds sleep and **actual_count**. It is required that **actual_count** be equal or greater than **expected_count**. Initial tests showed that ```std::this_thread::sleep_for*```  is accurate to *a millisecond or so*. 
 
-```sleep_until_or_later```  is a microsecond accurate alternative to ```std::this_thread::sleep_for```. 
+```sleep_until_or_later```  is a *header-only* microsecond accurate alternative to ```std::this_thread::sleep_for```. 
 
 ## Design
 ### Requirements
@@ -29,7 +29,8 @@ Divide the **expected_count** in to larger coarse and fine duration counts. Use 
 Fine_duration count is smaller than expected_count and is set proportional to the expected_count but never larger than 10,000 ( or 10 milliseconds)
 
 ## Example
-We'll now see how ```sleep_until_or_later```  can be used to compute derivatives. For this, consider the following function:
+We'll now see how ```sleep_until_or_later```  can be used. The header file can be fetched from the repository. 
+
 ```c++
 #include "sleep_util_or_later.hpp"
 
