@@ -50,8 +50,8 @@ void sleep_until_or_later (unsigned int microseconds_later){
     auto reminder_counts = (logx < 2) ? 1 : logx < 3 ? 10 : logx < 4 ? 100 : logx < 6 ? 1000 : 10000;
     auto remainder = std::chrono::microseconds(reminder_counts);
     auto chunk = dur - remainder;
-    // use sleep_until for all the way until the last millisecond.
-    
+
+    // Find the number of microseconds. Remainder
     std::this_thread::sleep_for(chunk);
     auto took = std::chrono::duration_cast<std::chrono::microseconds>(CK::now () - mark);
     remainder = dur - took;
@@ -59,7 +59,7 @@ void sleep_until_or_later (unsigned int microseconds_later){
     // initialize duration for now ()
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>(CK::now () - mark);
     
-    // Find the number of microseconds. Remainder
+
     // update duration as long as we have spent less time than sleep time
     while (duration.count() < remainder.count()){
         duration = std::chrono::duration_cast<std::chrono::microseconds>(CK::now () - mark);

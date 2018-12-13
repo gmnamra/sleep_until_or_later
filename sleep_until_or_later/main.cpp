@@ -147,9 +147,11 @@ bool run_test (std::pair<uint64_t,uint32_t>& test_case, float better_by, bool ve
     if(verbose)std::cout << "sleep_until_or_later was on or later at most by " << -sleepUntilOrLater.median() << std::endl;
     
     ok &= (thisThreadSleepFor.minimum() <= epsilon);
-    if(verbose)std::cout << "this_thread::sleep_f0r was on or later at most by " << -thisThreadSleepFor.median() << std::endl;
+    if(verbose)std::cout << "this_thread::sleep_for was on or later at most by " << -thisThreadSleepFor.median() << std::endl;
     
-    auto min_better = thisThreadSleepFor.minimum() / (sleepUntilOrLater.minimum() + epsilon);
+    auto min_better = thisThreadSleepFor.median() / (sleepUntilOrLater.median() - epsilon);
+    std::cout << min_better << std::endl;
+    
     ok &= min_better >= better_by;
     
     auto verdict =  ok? "Passed" : "Failed";
